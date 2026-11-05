@@ -1,0 +1,44 @@
+{
+  "font": "fonts/AlegreyaSans-Bold.ttf",
+  "width": 1080,
+  "font_ratio": 0.09,
+  "line_spacing": 1.24,
+  "items": [
+    {
+      "id": "01",
+      "image": "input/01.jpg",
+      "lines": [
+        "A",
+        "small sip",
+        "of",
+        "a slower",
+        "day"
+      ]
+    },
+    {
+      "id": "02",
+      "image": "input/02.jpg",
+      "lines": [
+        "The rain",
+        "gives",
+        "this moment",
+        "room",
+        "to breathe"
+      ],
+      "box": [
+        0.1,
+        0.18,
+        0.8,
+        0.64
+      ]
+    }
+  ],
+  "grade": {
+    "mode": "fixed",
+    "strength": 0.7,
+    "darkening": 0.22,
+    "saturation": 1.08,
+    "light": 0.05,
+    "detail": 0.12
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "暗调日常 · 多图文字排版"
+  short_description: "批量统一照片暗调、自然光感与轻饱和色彩，按画面生成白色粗体分行文案"
+  default_prompt: "使用 $moody-photo-type，将我上传的照片制作成统一暗调、白色粗体居中短句的图文组图，每张独立输出并附整组预览。"
