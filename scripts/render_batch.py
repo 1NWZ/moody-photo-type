@@ -4,11 +4,14 @@ import argparse
 import json
 import math
 import re
+import random
+import secrets
 import zipfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageChops
 from grade_photo import grade
+from layout_engine import PRESETS, render_blocks
 
 
 def resolve(base, value):
@@ -20,6 +23,12 @@ def render(manifest, output):
     base = manifest.parent
     data = json.loads(manifest.read_text(encoding='utf-8'))
     items = data['items']
+    seed = data.get('layout_seed', secrets.randbits(32))
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError('layout_seed must be an integer')
+    rng = random.Random(seed)
+    previous_layout = None
+    planned = {}
     if not items:
         raise ValueError('items must not be empty')
     font_path = resolve(base, data['font'])
@@ -38,7 +47,19 @@ def render(manifest, output):
         if not re.fullmatch(r'[A-Za-z0-9_-]+', key) or key in seen:
             raise ValueError('Each id must be unique and contain only A-Z a-z 0-9 _ -')
         seen.add(key)
-        lines = item['lines']
+        if 'layouts' in item:
+            variants = item['layouts']
+            if not isinstance(variants, dict) or not variants or set(variants)-set(PRESETS):
+                raise ValueError(f'{key}: invalid layout candidates')
+            eligible = list(variants)
+            if len(eligible)>1 and previous_layout in eligible:
+                eligible.remove(previous_layout)
+            chosen = rng.choice(sorted(eligible))
+            previous_layout = chosen
+            planned[key] = (chosen, variants[chosen])
+            lines = []
+        else:
+            lines = item['lines']
         if not isinstance(lines, list) or not all(isinstance(s, str) and s.strip() and '\n' not in s for s in lines):
             raise ValueError(f'{key}: lines must be a list of single-line strings (empty means no text)')
         box = item.get('box', [0.14, 0.18, 0.72, 0.64])
@@ -71,6 +92,14 @@ def render(manifest, output):
                 foreground = mask.convert('L')
             if foreground.size != im.size:
                 raise ValueError(f'{key}: foreground mask must match the final canvas dimensions')
+        if key in planned:
+            if foreground is None:
+                raise ValueError(f'{key}: a subject mask is required for reference layouts')
+            chosen, blocks = planned[key]
+            text_mask, block_records = render_blocks(im.size, font_path, chosen, blocks)
+            planned[key] = (chosen, text_mask, block_records)
+            prepared.append((key, im, lines, box, grade_info, crop, foreground))
+            continue
         size = shared_size
         while size >= round(width * 0.06):
             font = ImageFont.truetype(str(font_path), size)
@@ -92,20 +121,25 @@ def render(manifest, output):
     for key, im, lines, box, grade_info, crop, foreground in prepared:
         im.save(output/'graded'/f'{key}.png')
         w, h = im.size
-        font = ImageFont.truetype(str(font_path), shared_size)
-        bounds = [font.getbbox(s) for s in lines]
-        step = round(shared_size * leading)
-        block_height = (len(lines)-1)*step + max((b[3]-b[1] for b in bounds), default=0)
-        text_mask = Image.new('L', (w, h), 0)
-        draw = ImageDraw.Draw(text_mask)
-        for i, (line, bound) in enumerate(zip(lines, bounds)):
-            left = w/2 - (bound[2]-bound[0])/2 - bound[0]
-            draw.text((round(left), i*step-bound[1]), line, font=font, fill=255)
-        ink_box = text_mask.getbbox()
-        centered = Image.new('L', (w,h), 0)
-        if ink_box:
-            ink = text_mask.crop(ink_box)
-            centered.paste(ink, (round((w-ink.width)/2), round((h-ink.height)/2)))
+        block_records = None
+        chosen = None
+        if key in planned:
+            chosen, centered, block_records = planned[key]
+        else:
+            font = ImageFont.truetype(str(font_path), shared_size)
+            bounds = [font.getbbox(s) for s in lines]
+            step = round(shared_size * leading)
+            block_height = (len(lines)-1)*step + max((b[3]-b[1] for b in bounds), default=0)
+            text_mask = Image.new('L', (w, h), 0)
+            draw = ImageDraw.Draw(text_mask)
+            for i, (line, bound) in enumerate(zip(lines, bounds)):
+                left = w/2 - (bound[2]-bound[0])/2 - bound[0]
+                draw.text((round(left), i*step-bound[1]), line, font=font, fill=255)
+            ink_box = text_mask.getbbox()
+            centered = Image.new('L', (w,h), 0)
+            if ink_box:
+                ink = text_mask.crop(ink_box)
+                centered.paste(ink, (round((w-ink.width)/2), round((h-ink.height)/2)))
         centered_bounds = centered.getbbox()
         hidden_pixels = 0
         if foreground is not None:
@@ -116,7 +150,8 @@ def render(manifest, output):
         filename = f'{key}.jpg'
         im.save(output / filename, quality=95, subsampling=0)
         results.append({'id': key, 'file': filename, 'lines': lines, 'box': box,
-                        'size': [w,h], 'font_size': shared_size, 'grade': grade_info, 'crop': crop,
+                        'size': [w,h], 'font_size': shared_size if chosen is None else None,
+                        'layout_id': chosen, 'blocks': block_records, 'grade': grade_info, 'crop': crop,
                         'graded_file': f'graded/{key}.png', 'text_bounds_before_occlusion':centered_bounds,
                         'foreground_mask_applied':foreground is not None,'occluded_text_pixels':hidden_pixels})
         thumb = im.copy()
@@ -133,7 +168,7 @@ def render(manifest, output):
         label = key if len(key) <= 22 else key[:19]+'...'
         draw.text((ox+12,oy+376), label, font=label_font, fill='#222222')
     sheet.save(output/'contact-sheet.jpg', quality=92)
-    (output/'layout.json').write_text(json.dumps({'items':results},ensure_ascii=False,indent=2),encoding='utf-8')
+    (output/'layout.json').write_text(json.dumps({'layout_seed':seed,'items':results},ensure_ascii=False,indent=2),encoding='utf-8')
     with zipfile.ZipFile(output/'finals.zip','w',zipfile.ZIP_DEFLATED) as bundle:
         for p in sorted(output.iterdir()):
             if p.suffix in ('.jpg','.json'):

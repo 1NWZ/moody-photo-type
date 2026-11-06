@@ -7,38 +7,88 @@
     {
       "id": "01",
       "image": "input/01.jpg",
-      "lines": [
-        "A",
-        "small sip",
-        "of",
-        "a slower",
-        "day"
-      ],
-      "box": [
-        0.175,
-        0.2,
-        0.65,
-        0.6
-      ],
-      "foreground_mask": "masks/01-subject.png"
+      "foreground_mask": "masks/01-subject.png",
+      "layouts": {
+        "vertical": [
+          {
+            "role": "main",
+            "lines": [
+              "A",
+              "small sip",
+              "of",
+              "a slower",
+              "day"
+            ]
+          }
+        ],
+        "split": [
+          {
+            "role": "title",
+            "lines": [
+              "Slow days"
+            ]
+          },
+          {
+            "role": "body",
+            "lines": [
+              "A quiet moment",
+              "to pause"
+            ]
+          }
+        ],
+        "micro": [
+          {
+            "role": "main",
+            "lines": [
+              "A QUIET MOMENT",
+              "Room to pause."
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "02",
       "image": "input/02.jpg",
-      "lines": [
-        "The rain",
-        "gives",
-        "this moment",
-        "room",
-        "to breathe"
-      ],
-      "box": [
-        0.175,
-        0.2,
-        0.65,
-        0.6
-      ],
-      "foreground_mask": "masks/02-subject.png"
+      "foreground_mask": "masks/02-subject.png",
+      "layouts": {
+        "vertical": [
+          {
+            "role": "main",
+            "lines": [
+              "The rain",
+              "gives",
+              "this moment",
+              "room",
+              "to breathe"
+            ]
+          }
+        ],
+        "split": [
+          {
+            "role": "title",
+            "lines": [
+              "Slow days"
+            ]
+          },
+          {
+            "role": "body",
+            "lines": [
+              "A quiet moment",
+              "to pause"
+            ]
+          }
+        ],
+        "micro": [
+          {
+            "role": "main",
+            "lines": [
+              "A QUIET MOMENT",
+              "Room to pause."
+            ]
+          }
+        ]
+      }
     }
   ],
   "grade": {
@@ -48,5 +98,6 @@
     "saturation": 1.08,
     "light": 0.05,
     "detail": 0.12
-  }
+  },
+  "layout_seed": 42
 }
